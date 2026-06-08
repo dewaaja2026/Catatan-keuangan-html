@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CATATAN KEUANGAN</title>
@@ -132,12 +134,14 @@
             <div class="year-wrapper" id="year-container"></div>
 
             <div id="view-dashboard" class="view-panel active">
-                <div class="dashboard">
-                    <div class="card card-1"><div class="card-title">TOTAL SALDO</div><div class="card-val" id="db-total-saldo">Rp 0</div></div>
-                    <div class="card card-2"><div class="card-title">TOTAL PENGELUARAN</div><div class="card-val" id="db-total-pengeluaran">Rp 0</div></div>
-                    <div class="card card-3"><div class="card-title">TOTAL AMPLOP</div><div class="card-val" id="db-total-amplop">Rp 0</div></div>
-                    <div class="card card-4"><div class="card-title">TOTAL TRANSAKSI</div><div class="card-val" id="db-total-transaksi">0</div></div>
-                </div>
+           <div class="dashboard">
+    <div class="card card-2"><div class="card-title">TOTAL PENGELUARAN</div><div class="card-val" id="db-total-pengeluaran">Rp 0</div></div>
+    <div class="card card-3"><div class="card-title">TOTAL AMPLOP</div><div class="card-val" id="db-total-amplop">Rp 0</div></div>
+    
+    <div class="card card-1" style="grid-column: span 2;"><div class="card-title">TOTAL SALDO</div><div class="card-val" id="db-total-saldo">Rp 0</div></div>
+    
+    <div class="card card-4" style="grid-column: span 2;"><div class="card-title">PENGELUARAN</div><div class="card-val" id="db-total-transaksi">0</div></div>
+</div>
 
                 <button class="btn-excel" onclick="exportToExcel()">💼 EXPORT EXCEL</button>
 
@@ -300,7 +304,6 @@
                 appData = JSON.parse(localStorage.getItem("ruher_cash_app"));
             }
             
-            // Migrasi otomatis data lama agar struktur categories tetap terbentuk
             if (!appData.categories) {
                 appData.categories = {
                     pengeluaran: ["Service Mobil", "Bensin", "Cicilan Tiger", "Tab. Hussein", "Tab. Bani", "Jajan Ayang", "Dana Taktis", "Bani Kuliah", "Bayar Utang Cicilan Rumah", "Hussein Sekolah", "Qurban", "Biaya Tidak Terduga"],
@@ -561,24 +564,36 @@
         function calculateDashboard(txs) {
             const currentYearData = appData.years[appData.activeYear] || { saldoAwalCat: {}, txs: [] };
             const saCat = currentYearData.saldoAwalCat || {};
-            
-            let totalSaldoAwalGlobal = 0;
-            Object.keys(saCat).forEach(k => { totalSaldoAwalGlobal += saCat[k] || 0; });
 
-            let totalSaldo = totalSaldoAwalGlobal;
-            let totalPengeluaran = 0, totalAmplop = 0;
-            
-            txs.forEach(t => {
-                let amt = t.action === "Pengeluaran" ? -t.amount : t.amount;
-                totalSaldo += amt;
-                if(t.action === "Pengeluaran") { totalPengeluaran += t.amount; }
-                if(t.type === "Amplop") { totalAmplop += amt; }
-            });
+            // 1. Saldo Akhir Kategori Pengeluaran
+            let totalPengeluaran = appData.categories.pengeluaran.reduce((sum, cat) => {
+                let sa = saCat[cat] || 0;
+                let mutasi = txs.filter(t => t.type === 'Pengeluaran' && t.category === cat)
+                                .reduce((acc, t) => acc + (t.action === "Pengeluaran" ? -t.amount : t.amount), 0);
+                return sum + (sa + mutasi);
+            }, 0);
 
-            document.getElementById('db-total-saldo').innerText = "Rp " + totalSaldo.toLocaleString('id-ID');
+            // 2. Saldo Akhir Kategori Amplop
+            let totalAmplop = appData.categories.amplop.reduce((sum, cat) => {
+                let sa = saCat[cat] || 0;
+                let mutasi = txs.filter(t => t.type === 'Amplop' && t.category === cat)
+                                .reduce((acc, t) => acc + (t.action === "Pengeluaran" ? -t.amount : t.amount), 0);
+                return sum + (sa + mutasi);
+            }, 0);
+
+            // 3. Total Uang Keluar (Kartu 4) = Total semua transaksi dengan action 'Pengeluaran'
+            let totalUangKeluar = txs
+                .filter(t => t.action === 'Pengeluaran')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            // Update Tampilan ke HTML
+            document.getElementById('db-total-saldo').innerText = "Rp " + (totalPengeluaran + totalAmplop).toLocaleString('id-ID');
             document.getElementById('db-total-pengeluaran').innerText = "Rp " + totalPengeluaran.toLocaleString('id-ID');
             document.getElementById('db-total-amplop').innerText = "Rp " + totalAmplop.toLocaleString('id-ID');
-            document.getElementById('db-total-transaksi').innerText = txs.length;
+            
+            // Update Kartu ke-4
+            document.querySelector('.card-4 .card-title').innerText = "PENGELUARAN";
+            document.getElementById('db-total-transaksi').innerText = "Rp " + totalUangKeluar.toLocaleString('id-ID');
         }
 
         function executeDistribution() {
@@ -590,7 +605,7 @@
 
             let batchId = 'dist_' + Date.now();
             appData.categories.pengeluaran.forEach((cat, index) => {
-                let amt = distValues[index] || 0; // proteksi jika indeks melebihi jumlah default nominal distribusi
+                let amt = distValues[index] || 0;
                 appData.years[appData.activeYear].txs.push({
                     id: 'tx_' + batchId + '_' + index, type: 'Pengeluaran', category: cat, date: dDate, amount: amt, action: 'Tambah Saldo'
                 });
@@ -641,7 +656,6 @@
             }
         }
 
-        // FUNGSI OPERASIONAL: MANAJEMEN SUB KATEGORI DINAMIS
         function addCategory(){
             let type = document.getElementById('new-cat-type').value;
             let name = document.getElementById('new-cat-name').value.trim();
@@ -685,7 +699,6 @@
             let idx = arr.indexOf(oldName);
             arr[idx] = newName;
 
-            // Dioptimalkan: Sinkronisasi nama kategori lama ke baru di SEMUA tahun agar history data tidak rusak
             Object.keys(appData.years).forEach(yr => {
                 if(appData.years[yr].txs) {
                     appData.years[yr].txs.forEach(tx => {
@@ -725,7 +738,6 @@
 
             arr.splice(idx, 1);
 
-            // Dioptimalkan: Bersihkan transaksi dan saldo awal kategori di semua lini tahun secara menyeluruh
             Object.keys(appData.years).forEach(yr => {
                 if(appData.years[yr].txs) {
                     appData.years[yr].txs = appData.years[yr].txs.filter(t => t.category !== name);
@@ -774,7 +786,7 @@
                 ["Total Saldo", document.getElementById('db-total-saldo').innerText],
                 ["Total Pengeluaran", document.getElementById('db-total-pengeluaran').innerText],
                 ["Total Amplop", document.getElementById('db-total-amplop').innerText],
-                ["Total Transaksi", document.getElementById('db-total-transaksi').innerText]
+                ["Total PENGELUARAN", document.getElementById('db-total-transaksi').innerText]
             ];
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dbData), "Dashboard Summary");
             XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(document.getElementById('table-pengeluaran')), "Kategori Pengeluaran");
