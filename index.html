@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CATATAN KEUANGAN</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-gradient: linear-gradient(135deg, #1e40af, #6b21a8);
+            --secondary: #7c3aed;
+            --dark-brown: #854d0e;
+            --bg-light: #f8fafc;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-light); color: #333; padding-bottom: 70px; font-size: 0.85rem; }
+        .hidden { display: none !important; }
+        
+        /* PIN Screen */
+        #pin-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #ffffff; color: #1e3a8a; }
+        .pin-box { text-align: center; width: 100%; max-width: 360px; padding: 20px; }
+        .pin-box h2 { font-size: 1.8rem; font-weight: 500; color: #1d4ed8; margin-bottom: 8px; }
+        .pin-subtitle { color: #64748b; font-size: 0.95rem; margin-bottom: 25px; }
+        .pin-dots { display: flex; justify-content: center; gap: 14px; margin-bottom: 35px; }
+        .dot { width: 14px; height: 14px; border: 2px solid #3b82f6; border-radius: 50%; background: transparent; transition: 0.1s; }
+        .dot.active { background: #3b82f6; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 280px; margin: auto; }
+        .key { border: none; color: #000000; font-size: 1.3rem; border-radius: 50%; width: 72px; height: 72px; margin: auto; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 400; transition: background 0.1s; }
+        .key-num { background: #f0f4f9; }
+        .key-num:active { background: #e2e8f0; }
+        .key-clear { background: #fee2e2; color: #dc2626; font-size: 1.1rem; }
+        .key-clear:active { background: #fca5a5; }
+        .key-info { background: #e0f2fe; color: #0284c7; font-size: 1.1rem; }
+        .key-info:active { background: #bae6fd; }
+
+        /* Header */
+        header { background: var(--primary-gradient); color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        header h1 { font-size: 1.2rem; letter-spacing: 0.5px; font-weight: bold; margin: auto; transform: translateX(20px); }
+        .logout-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; cursor: pointer; }
+
+        .container { padding: 10px; max-width: 500px; margin: auto; }
+        
+        /* Year Selector */
+        .year-wrapper { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 5px 0; margin-bottom: 8px; white-space: nowrap; }
+        .year-pill { background: white; border: 1px solid #cbd5e1; padding: 5px 12px; border-radius: 15px; font-weight: 500; color: #334155; cursor: pointer; font-size: 0.8rem; }
+        .year-pill.active { background: #1e3a8a; color: white; border-color: #1e3a8a; font-weight: bold; }
+        .add-year-btn { background: #e2e8f0; border: 1px dashed #94a3b8; padding: 5px 12px; border-radius: 15px; font-weight: 500; cursor: pointer; color: #334155; font-size: 0.8rem; }
+
+        /* Dashboard Cards */
+        .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
+        .card { padding: 10px; border-radius: 10px; color: white; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card-1 { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .card-2 { background: linear-gradient(135deg, #a855f7, #7e22ce); }
+        .card-3 { background: linear-gradient(135deg, #6366f1, #4338ca); }
+        .card-4 { background: linear-gradient(135deg, #ec4899, #be185d); }
+        .card-title { font-size: 0.65rem; text-transform: uppercase; opacity: 0.9; letter-spacing: 0.5px; }
+        .card-val { font-size: 1.1rem; margin-top: 2px; font-weight: bold; }
+
+        /* Export Excel Button */
+        .btn-excel { background: #10b981; color: white; border: none; padding: 8px; border-radius: 8px; font-weight: bold; width: 100%; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* Tables & Titles */
+        .table-title { color: var(--dark-brown); font-size: 1.05rem; font-weight: bold; margin: 15px 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .table-container { overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; vertical-align: top; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding: 8px 10px; }
+        
+        th.clickable-date { cursor: pointer; transition: all 0.2s; position: relative; }
+        th.clickable-date:hover { color: #dc2626; background: #fee2e2; }
+        
+        td:first-child { width: 30%; font-weight: 500; }
+        .text-red { color: #dc2626; font-weight: 500; }
+        .tx-item { display: block; border-bottom: 1px dashed #eee; padding: 1px 0; margin-bottom: 1px; cursor: pointer; }
+        .tx-item:last-child { border-bottom: none; margin-bottom: 0; }
+        
+        /* Navigation Bar Bawah */
+        nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px 0; box-shadow: 0 -2px 4px rgba(0,0,0,0.05); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background: none; border: none; color: #64748b; font-size: 0.7rem; font-weight: 500; cursor: pointer; }
+        .nav-item.active { color: #1e3a8a; font-weight: bold; }
+        .nav-icon { font-size: 1.1rem; margin-bottom: 1px; }
+
+        /* Forms Views */
+        .view-panel { display: none; }
+        .view-panel.active { display: block; }
+        .form-group { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 12px; }
+        .form-group h3 { margin-bottom: 10px; color: #1e3a8a; font-size: 0.95rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+        .form-control { display: flex; flex-direction: column; margin-bottom: 10px; }
+        .form-control label { font-weight: 600; margin-bottom: 4px; font-size: 0.75rem; color: #475569; }
+        input, select { padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; width: 100%; background: #fff; height: 36px; }
+        input:readonly { background: #f1f5f9; color: #64748b; }
+        .btn-submit { background: #1e3a8a; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85rem; margin-top: 5px; height: 36px; }
+        .btn-submit:active { opacity: 0.9; }
+
+        footer { text-align: center; padding: 10px; font-size: 0.7rem; color: #94a3b8; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="pin-screen">
+        <div class="pin-box">
+            <h2>Masuk Aplikasi</h2>
+            <div class="pin-subtitle">Silakan masukkan PIN Anda</div>
+            <div class="pin-dots">
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            </div>
+            <div class="keypad">
+                <button class="key key-num" onclick="pressKey(1)">1</button>
+                <button class="key key-num" onclick="pressKey(2)">2</button>
+                <button class="key key-num" onclick="pressKey(3)">3</button>
+                <button class="key key-num" onclick="pressKey(4)">4</button>
+                <button class="key key-num" onclick="pressKey(5)">5</button>
+                <button class="key key-num" onclick="pressKey(6)">6</button>
+                <button class="key key-num" onclick="pressKey(7)">7</button>
+                <button class="key key-num" onclick="pressKey(8)">8</button>
+                <button class="key key-num" onclick="pressKey(9)">9</button>
+                <button class="key key-clear" onclick="clearPin()">c</button>
+                <button class="key key-num" onclick="pressKey(0)">0</button>
+                <button class="key key-info" onclick="alert('PIN Default: 1234')">?</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden">
+        <header>
+            <h1>CATATAN KEUANGAN</h1>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </header>
+
+        <div class="container">
+            <div class="year-wrapper" id="year-container"></div>
+
+            <div id="view-dashboard" class="view-panel active">
+                <div class="dashboard">
+                    <div class="card card-1"><div class="card-title">TOTAL SALDO</div><div class="card-val" id="db-total-saldo">Rp 0</div></div>
+                    <div class="card card-2"><div class="card-title">TOTAL PENGELUARAN</div><div class="card-val" id="db-total-pengeluaran">Rp 0</div></div>
+                    <div class="card card-3"><div class="card-title">TOTAL AMPLOP</div><div class="card-val" id="db-total-amplop">Rp 0</div></div>
+                    <div class="card card-4"><div class="card-title">TOTAL TRANSAKSI</div><div class="card-val" id="db-total-transaksi">0</div></div>
+                </div>
+
+                <button class="btn-excel" onclick="exportToExcel()">💼 EXPORT EXCEL</button>
+
+                <div class="table-title">KATEGORI PENGELUARAN</div>
+                <div class="table-container">
+                    <table id="table-pengeluaran"><thead><tr><th>Kategori</th><th>Saldo Awal</th><th>Saldo</th></tr></thead><tbody></tbody></table>
+                </div>
+
+                <div class="table-title">KATEGORI AMPLOP</div>
+                <div class="table-container">
+                    <table id="table-amplop"><thead><tr><th>Kategori</th><th>Saldo Awal</th><th>Saldo</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+
+            <div id="view-input" class="view-panel">
+                <div class="form-group">
+                    <h2 style="font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif; font-weight: 900; color: #dc2626; margin-bottom: 10px; font-size: 1.1rem; letter-spacing: 0.5px;">DISTRIBUSI OTOMATIS</h2>
+                    <div class="form-control">
+                        <label>Tanggal Distribusi</label>
+                        <input type="date" id="dist-date">
+                    </div>
+                    <div class="form-control">
+                        <label>Nominal Total</label>
+                        <input type="text" id="dist-amount" value="4.750.000" readonly style="font-weight:bold; color:#1e3a8a;">
+                    </div>
+                    <button class="btn-submit" style="background:#7c3aed;" onclick="executeDistribution()">Distribusikan</button>
+                </div>
+
+                <div class="form-group">
+                    <h2 style="font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif; font-weight: 900; color: #dc2626; margin-bottom: 10px; font-size: 1.1rem; letter-spacing: 0.5px;">FORM TRANSAKSI</h2>
+                    <div class="form-control">
+                        <label>Jenis Kategori</label>
+                        <select id="tx-type" onchange="updateCategoryDropdown()">
+                            <option value="Pengeluaran">Pengeluaran</option>
+                            <option value="Amplop">Amplop</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label>Pilih Sub Kategori</label>
+                        <select id="tx-category"></select>
+                    </div>
+                    <div class="form-control">
+                        <label>Tanggal Transaksi</label>
+                        <input type="date" id="tx-date">
+                    </div>
+                    <div class="form-control">
+                        <label>Nominal (Rp)</label>
+                        <input type="text" id="tx-amount" placeholder="Contoh: 50.000" oninput="formatThousand(this)">
+                    </div>
+                    <div class="form-control">
+                        <label>Aksi</label>
+                        <select id="tx-action">
+                            <option value="Pengeluaran">Pengeluaran (-)</option>
+                            <option value="Tambah Saldo">Tambah Saldo (+)</option>
+                        </select>
+                    </div>
+                    <button class="btn-submit" onclick="saveTransaction()">Simpan Transaksi</button>
+                </div>
+            </div>
+
+            <div id="view-pin" class="view-panel">
+                <div class="form-group">
+                    <h3>SISTEM KEAMANAN & MANAJEMEN TAHUN</h3>
+                    <button class="btn-submit" style="background:#475569; margin-bottom:10px;" onclick="changePinPrompt()">Ganti PIN Aplikasi</button>
+                    <button class="btn-submit" style="background:#dc2626;" onclick="deleteActiveYear()">⚠️ Hapus Tahun Aktif (<span id="label-tahun-aktif-del">2026</span>)</button>
+                </div>
+
+                <div class="form-group">
+                    <h3>MANAJEMEN SUB KATEGORI</h3>
+                    <div class="form-control">
+                        <label>Jenis Kategori</label>
+                        <select id="new-cat-type">
+                            <option value="Pengeluaran">Pengeluaran</option>
+                            <option value="Amplop">Amplop</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label>Nama Sub Kategori</label>
+                        <input type="text" id="new-cat-name" placeholder="Ketik nama kategori baru/lama">
+                    </div>
+                    <button class="btn-submit" style="background:#10b981; margin-bottom:6px;" onclick="addCategory()">Tambah Kategori</button>
+                    <button class="btn-submit" style="background:#f59e0b; margin-bottom:6px;" onclick="renameCategory()">Edit Nama Kategori</button>
+                    <button class="btn-submit" style="background:#dc2626;" onclick="deleteCategory()">Hapus Kategori</button>
+                </div>
+                
+                <div class="form-group">
+                    <h3>SALDO AWAL KATEGORI TAHUN (<span id="label-tahun-aktif">2026</span>)</h3>
+                    <div class="form-control">
+                        <label>Jenis</label>
+                        <select id="sa-type" onchange="updateSACategoryDropdown()">
+                            <option value="Pengeluaran">Pengeluaran</option>
+                            <option value="Amplop">Amplop</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label>Pilih Kategori</label>
+                        <select id="sa-category" onchange="loadExistingSAValue()"></select>
+                    </div>
+                    <div class="form-control">
+                        <label>Nominal Saldo Awal (Rp)</label>
+                        <input type="text" id="input-saldo-awal" placeholder="Contoh: 500.000" oninput="formatThousand(this)">
+                    </div>
+                    
+                    <button class="btn-submit" style="background:#0284c7; margin-bottom:6px;" onclick="updateSaldoAwalKategori()">Simpan Saldo Awal</button>
+                    <button class="btn-submit" style="background:#f59e0b; margin-bottom:6px;" onclick="editSaldoAwalKategori()">Edit Saldo Awal</button>
+                    <button class="btn-submit" style="background:#dc2626;" onclick="hapusSaldoAwalKategori()">Hapus Saldo Awal</button>
+                </div>
+
+                <div class="form-group">
+                    <h3>BACKUP & RESTORE DATA</h3>
+                    <button class="btn-submit" style="background:#10b981; margin-bottom:12px;" onclick="backupData()">📥 Backup Data Keuangan</button>
+                    <div class="form-control">
+                        <label>Restore Data dari File Backup (.json)</label>
+                        <input type="file" id="restore-file" accept=".json" onchange="restoreData(this)">
+                    </div>
+                </div>
+            </div>
+
+            <footer>Copyright © Ruher 6571</footer>
+        </div>
+
+        <nav>
+            <button class="nav-item active" id="nav-dash" onclick="switchTab('dashboard')">
+                <div class="nav-icon">📊</div>
+                <div>Dashboard</div>
+            </button>
+            <button class="nav-item" id="nav-inp" onclick="switchTab('input')">
+                <div class="nav-icon">➕</div>
+                <div>Input / Distribusi</div>
+            </button>
+            <button class="nav-item" id="nav-pn" onclick="switchTab('pin')">
+                <div class="nav-icon">⚙️</div>
+                <div>Pengaturan</div>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // Data & State Management
+        let appData = { 
+            pin: "1234", 
+            categories: {
+                pengeluaran: ["Service Mobil", "Bensin", "Cicilan Tiger", "Tab. Hussein", "Tab. Bani", "Jajan Ayang", "Dana Taktis", "Bani Kuliah", "Bayar Utang Cicilan Rumah", "Hussein Sekolah", "Qurban", "Biaya Tidak Terduga"],
+                amplop: ["Bani Sekolah", "Cicilan Bangun Rumah", "BPJS Bani", "Agua + Gas"]
+            },
+            years: { 
+                "2026": { saldoAwalCat: {}, txs: [] }, 
+                "2027": { saldoAwalCat: {}, txs: [] }, 
+                "2028": { saldoAwalCat: {}, txs: [] }, 
+                "2029": { saldoAwalCat: {}, txs: [] } 
+            }, 
+            activeYear: "2026" 
+        };
+        let inputPin = "";
+
+        const distValues = [600000, 100000, 100000, 50000, 50000, 150000, 500000, 1000000, 1000000, 1000000, 100000, 100000];
+
+        window.onload = function() {
+            if(localStorage.getItem("ruher_cash_app")) {
+                appData = JSON.parse(localStorage.getItem("ruher_cash_app"));
+            }
+            
+            // Migrasi otomatis data lama agar struktur categories tetap terbentuk
+            if (!appData.categories) {
+                appData.categories = {
+                    pengeluaran: ["Service Mobil", "Bensin", "Cicilan Tiger", "Tab. Hussein", "Tab. Bani", "Jajan Ayang", "Dana Taktis", "Bani Kuliah", "Bayar Utang Cicilan Rumah", "Hussein Sekolah", "Qurban", "Biaya Tidak Terduga"],
+                    amplop: ["Bani Sekolah", "Cicilan Bangun Rumah", "BPJS Bani", "Agua + Gas"]
+                };
+            }
+
+            if (!appData.years[appData.activeYear]) {
+                appData.activeYear = Object.keys(appData.years)[0] || "2026";
+            }
+
+            Object.keys(appData.years).forEach(yr => {
+                if (!appData.years[yr].saldoAwalCat) {
+                    appData.years[yr].saldoAwalCat = {};
+                }
+            });
+
+            document.getElementById('dist-date').valueAsDate = new Date();
+            document.getElementById('tx-date').valueAsDate = new Date();
+            renderYearPills();
+            updateCategoryDropdown();
+        }
+
+        function formatThousand(el) {
+            let angka = el.value.replace(/\D/g, '');
+            el.value = angka ? Number(angka).toLocaleString('id-ID') : '';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            
+            if(tabName === 'dashboard') {
+                document.getElementById('view-dashboard').classList.add('active');
+                document.getElementById('nav-dash').classList.add('active');
+                renderAll();
+            } else if(tabName === 'input') {
+                document.getElementById('view-input').classList.add('active');
+                document.getElementById('nav-inp').classList.add('active');
+                updateCategoryDropdown();
+            } else if(tabName === 'pin') {
+                document.getElementById('view-pin').classList.add('active');
+                document.getElementById('nav-pn').classList.add('active');
+                document.getElementById('label-tahun-aktif').innerText = appData.activeYear;
+                document.getElementById('label-tahun-aktif-del').innerText = appData.activeYear;
+                updateSACategoryDropdown();
+            }
+        }
+
+        function pressKey(num) {
+            if(inputPin.length < 4) {
+                inputPin += num;
+                updatePinDots();
+                if(inputPin.length === 4) {
+                    setTimeout(() => {
+                        if(inputPin === appData.pin) {
+                            document.getElementById('pin-screen').classList.add('hidden');
+                            document.getElementById('main-app').classList.remove('hidden');
+                            renderAll();
+                        } else {
+                            alert("PIN Salah!");
+                            clearPin();
+                        }
+                    }, 150);
+                }
+            }
+        }
+        function clearPin() { inputPin = ""; updatePinDots(); }
+        function updatePinDots() {
+            const dots = document.querySelectorAll('.dot');
+            dots.forEach((dot, idx) => dot.classList.toggle('active', idx < inputPin.length));
+        }
+        function logout() { clearPin(); document.getElementById('main-app').classList.add('hidden'); document.getElementById('pin-screen').classList.remove('hidden'); }
+        
+        function changePinPrompt() {
+            let newPin = prompt("Masukkan PIN baru (4 angka):");
+            if(newPin && newPin.length === 4 && !isNaN(newPin)) {
+                appData.pin = newPin; saveData(); alert("PIN Berhasil diubah!");
+            } else { alert("PIN tidak valid."); }
+        }
+
+        function updateSACategoryDropdown() {
+            const type = document.getElementById('sa-type').value;
+            const catSel = document.getElementById('sa-category');
+            catSel.innerHTML = "";
+            const list = type === "Pengeluaran" ? appData.categories.pengeluaran : appData.categories.amplop;
+            list.forEach(c => catSel.innerHTML += `<option value="${c}">${c}</option>`);
+            loadExistingSAValue();
+        }
+
+        function loadExistingSAValue() {
+            let cat = document.getElementById('sa-category').value;
+            if(!cat) return document.getElementById('input-saldo-awal').value = '';
+            let saCat = appData.years[appData.activeYear].saldoAwalCat || {};
+            let val = saCat[cat] || 0;
+            document.getElementById('input-saldo-awal').value = val ? val.toLocaleString('id-ID') : '';
+        }
+
+        function updateSaldoAwalKategori() {
+            let cat = document.getElementById('sa-category').value;
+            if(!cat) return alert("Pilih kategori terlebih dahulu!");
+            let rawVal = document.getElementById('input-saldo-awal').value.replace(/\./g, '');
+            let val = parseInt(rawVal);
+            if(isNaN(val)) val = 0;
+
+            appData.years[appData.activeYear].saldoAwalCat[cat] = val;
+            saveData();
+            alert(`Saldo awal [${cat}] berhasil disimpan!`);
+        }
+
+        function editSaldoAwalKategori() {
+            let cat = document.getElementById('sa-category').value;
+            if(!cat) return alert("Pilih kategori terlebih dahulu!");
+
+            if(!(cat in appData.years[appData.activeYear].saldoAwalCat)){
+                return alert("Saldo awal belum ada.");
+            }
+
+            let nilaiBaru = prompt(`Edit saldo awal kategori ${cat}`, appData.years[appData.activeYear].saldoAwalCat[cat]);
+            if(nilaiBaru === null) return;
+            nilaiBaru = parseInt(nilaiBaru);
+
+            if(isNaN(nilaiBaru)){
+                return alert("Nominal tidak valid.");
+            }
+
+            appData.years[appData.activeYear].saldoAwalCat[cat] = nilaiBaru;
+            saveData();
+            loadExistingSAValue();
+            renderAll();
+            alert("Saldo awal berhasil diperbarui.");
+        }
+
+        function hapusSaldoAwalKategori() {
+            let cat = document.getElementById('sa-category').value;
+            if(!cat) return alert("Pilih kategori terlebih dahulu!");
+
+            if(confirm(`Hapus saldo awal kategori ${cat}?`)){
+                delete appData.years[appData.activeYear].saldoAwalCat[cat];
+                saveData();
+                loadExistingSAValue();
+                renderAll();
+                alert("Saldo awal berhasil dihapus.");
+            }
+        }
+
+        function renderYearPills() {
+            const container = document.getElementById('year-container');
+            container.innerHTML = "";
+            Object.keys(appData.years).sort().forEach(yr => {
+                let isActive = yr === appData.activeYear ? 'active' : '';
+                container.innerHTML += `<div class="year-pill ${isActive}" onclick="switchYear('${yr}')">${yr}</div>`;
+            });
+            container.innerHTML += `<div class="add-year-btn" onclick="addYear()">+ Tahun</div>`;
+        }
+        function switchYear(yr) { appData.activeYear = yr; renderYearPills(); renderAll(); }
+        function addYear() {
+            let yr = prompt("Masukkan Tahun Baru:");
+            if(yr && yr.length === 4 && !appData.years[yr]) {
+                appData.years[yr] = { saldoAwalCat: {}, txs: [] };
+                appData.activeYear = yr; saveData(); renderYearPills(); renderAll();
+            }
+        }
+        function deleteActiveYear() {
+            let currentYear = appData.activeYear;
+            let allYears = Object.keys(appData.years);
+            if(allYears.length <= 1) return alert("Aplikasi memerlukan minimal memiliki 1 data Tahun.");
+            if(confirm(`Apakah Anda yakin ingin MENGHAPUS TOTAL tahun ${currentYear}?`)) {
+                delete appData.years[currentYear];
+                appData.activeYear = Object.keys(appData.years)[0];
+                saveData(); renderYearPills(); switchTab('dashboard');
+            }
+        }
+
+        function updateCategoryDropdown() {
+            const type = document.getElementById('tx-type').value;
+            const catSel = document.getElementById('tx-category');
+            catSel.innerHTML = "";
+            const list = type === "Pengeluaran" ? appData.categories.pengeluaran : appData.categories.amplop;
+            list.forEach(c => catSel.innerHTML += `<option value="${c}">${c}</option>`);
+        }
+
+        function saveData() { localStorage.setItem("ruher_cash_app", JSON.stringify(appData)); }
+
+        function renderAll() {
+            const currentYearData = appData.years[appData.activeYear] || { saldoAwalCat: {}, txs: [] };
+            const txs = currentYearData.txs;
+
+            let uniqueDates = [...new Set(txs.map(t => t.date))].sort();
+            let formattedHeaders = uniqueDates.map(d => d.substring(5,10).replace('-','/'));
+
+            renderTable("table-pengeluaran", appData.categories.pengeluaran, uniqueDates, formattedHeaders, txs, "Pengeluaran");
+            renderTable("table-amplop", appData.categories.amplop, uniqueDates, formattedHeaders, txs, "Amplop");
+            calculateDashboard(txs);
+        }
+
+        function renderTable(tableId, categories, uniqueDates, formattedHeaders, txs, type) {
+            const table = document.getElementById(tableId);
+            const saCat = appData.years[appData.activeYear].saldoAwalCat || {};
+            
+            let headerHtml = `<tr><th>Kategori</th><th>Saldo Awal</th>`;
+            uniqueDates.forEach((rawDate, idx) => {
+                let hd = formattedHeaders[idx];
+                headerHtml += `
+                <th class="clickable-date" 
+                onclick="deleteTransactionsByDateType('${rawDate}','${type}')" 
+                title="Klik untuk hapus seluruh transaksi ${type} tanggal ${rawDate}">
+                ${hd} 🗑️
+                </th>`;
+            });
+            headerHtml += `<th>Saldo Akhir</th></tr>`;
+            table.querySelector('thead').innerHTML = headerHtml;
+
+            let bodyHtml = "";
+            categories.forEach(cat => {
+                let saValue = saCat[cat] || 0;
+                bodyHtml += `<tr><td><strong>${cat}</strong></td><td>${saValue.toLocaleString('id-ID')}</td>`;
+                let currentCatBalance = saValue;
+
+                uniqueDates.forEach(rawDate => {
+                    let matches = txs.filter(t => t.type === type && t.category === cat && t.date === rawDate);
+                    
+                    if(matches.length > 0) {
+                        let cellHtml = [];
+                        let colSum = 0;
+                        
+                        matches.forEach(m => {
+                            let amt = m.action === "Pengeluaran" ? -m.amount : m.amount;
+                            colSum += amt;
+                            cellHtml.push(`<div class="tx-item ${amt < 0 ? 'text-red':''}" onclick="editData('${m.id}')">${amt.toLocaleString('id-ID')}</div>`);
+                        });
+                        
+                        currentCatBalance += colSum;
+                        bodyHtml += `<td>${cellHtml.join("")}</td>`;
+                    } else {
+                        bodyHtml += `<td>-</td>`;
+                    }
+                });
+
+                bodyHtml += `<td><strong>${currentCatBalance.toLocaleString('id-ID')}</strong></td></tr>`;
+            });
+            table.querySelector('tbody').innerHTML = bodyHtml;
+        }
+
+        function deleteTransactionsByDateType(targetDate, type){
+            let pesan = `Hapus semua transaksi\nJenis : ${type}\nTanggal : ${targetDate}\n\nLanjutkan?`;
+            if(!confirm(pesan)) return;
+
+            appData.years[appData.activeYear].txs = appData.years[appData.activeYear].txs.filter(t => {
+                return !(t.date === targetDate && t.type === type);
+            });
+
+            saveData();
+            renderAll();
+            alert(`Semua transaksi ${type} tanggal ${targetDate} berhasil dihapus.`);
+        }
+
+        function calculateDashboard(txs) {
+            const currentYearData = appData.years[appData.activeYear] || { saldoAwalCat: {}, txs: [] };
+            const saCat = currentYearData.saldoAwalCat || {};
+            
+            let totalSaldoAwalGlobal = 0;
+            Object.keys(saCat).forEach(k => { totalSaldoAwalGlobal += saCat[k] || 0; });
+
+            let totalSaldo = totalSaldoAwalGlobal;
+            let totalPengeluaran = 0, totalAmplop = 0;
+            
+            txs.forEach(t => {
+                let amt = t.action === "Pengeluaran" ? -t.amount : t.amount;
+                totalSaldo += amt;
+                if(t.action === "Pengeluaran") { totalPengeluaran += t.amount; }
+                if(t.type === "Amplop") { totalAmplop += amt; }
+            });
+
+            document.getElementById('db-total-saldo').innerText = "Rp " + totalSaldo.toLocaleString('id-ID');
+            document.getElementById('db-total-pengeluaran').innerText = "Rp " + totalPengeluaran.toLocaleString('id-ID');
+            document.getElementById('db-total-amplop').innerText = "Rp " + totalAmplop.toLocaleString('id-ID');
+            document.getElementById('db-total-transaksi').innerText = txs.length;
+        }
+
+        function executeDistribution() {
+            let dDate = document.getElementById('dist-date').value;
+            if(!dDate) return alert("Pilih tanggal distribusi!");
+
+            let exists = appData.years[appData.activeYear].txs.some(t => t.date === dDate && t.id.includes('dist_'));
+            if(exists){ return alert("Distribusi tanggal ini sudah pernah dilakukan!"); }
+
+            let batchId = 'dist_' + Date.now();
+            appData.categories.pengeluaran.forEach((cat, index) => {
+                let amt = distValues[index] || 0; // proteksi jika indeks melebihi jumlah default nominal distribusi
+                appData.years[appData.activeYear].txs.push({
+                    id: 'tx_' + batchId + '_' + index, type: 'Pengeluaran', category: cat, date: dDate, amount: amt, action: 'Tambah Saldo'
+                });
+            });
+            saveData(); switchTab('dashboard'); alert("Distribusi Otomatis Berhasil!");
+        }
+
+        function saveTransaction() {
+            let type = document.getElementById('tx-type').value;
+            let cat = document.getElementById('tx-category').value;
+            let date = document.getElementById('tx-date').value;
+            let rawAmt = document.getElementById('tx-amount').value.replace(/\./g, '');
+            let amt = parseInt(rawAmt);
+            let act = document.getElementById('tx-action').value;
+
+            if(!date || isNaN(amt)) return alert("Isi tanggal dan nominal dengan benar!");
+
+            appData.years[appData.activeYear].txs.push({
+                id: 'tx_' + Date.now(), type: type, category: cat, date: date, amount: amt, action: act
+            });
+            saveData(); switchTab('dashboard');
+            document.getElementById('tx-amount').value = "";
+        }
+
+        function editData(id) {
+            let txs = appData.years[appData.activeYear].txs;
+            let targetTx = txs.find(t => t.id === id);
+            if(!targetTx) return;
+
+            let opsi = prompt(`Pilih Aksi:\n1. Edit Transaksi\n2. Hapus Transaksi\n\nDetail: ${targetTx.category} (Rp ${targetTx.amount.toLocaleString('id-ID')})`);
+
+            if (opsi === "1") {
+                switchTab('input');
+                document.getElementById('tx-type').value = targetTx.type;
+                updateCategoryDropdown();
+                document.getElementById('tx-category').value = targetTx.category;
+                document.getElementById('tx-date').value = targetTx.date;
+                document.getElementById('tx-amount').value = targetTx.amount.toLocaleString('id-ID');
+                document.getElementById('tx-action').value = targetTx.action;
+
+                appData.years[appData.activeYear].txs = txs.filter(t => t.id !== id);
+                saveData();
+            } else if (opsi === "2") {
+                if(confirm("Apakah Anda yakin ingin menghapus data transaksi ini?")) {
+                    appData.years[appData.activeYear].txs = txs.filter(t => t.id !== id);
+                    saveData(); renderAll();
+                }
+            }
+        }
+
+        // FUNGSI OPERASIONAL: MANAJEMEN SUB KATEGORI DINAMIS
+        function addCategory(){
+            let type = document.getElementById('new-cat-type').value;
+            let name = document.getElementById('new-cat-name').value.trim();
+
+            if(!name){
+                return alert("Nama kategori kosong.");
+            }
+
+            let arr = type === "Pengeluaran" ? appData.categories.pengeluaran : appData.categories.amplop;
+
+            if(arr.includes(name)){
+                return alert("Kategori sudah ada.");
+            }
+
+            arr.push(name);
+            saveData();
+
+            updateCategoryDropdown();
+            updateSACategoryDropdown();
+            document.getElementById('new-cat-name').value = "";
+
+            alert("Kategori berhasil ditambahkan.");
+        }
+
+        function renameCategory(){
+            let oldName = prompt("Nama kategori yang akan diubah:");
+            if(!oldName) return;
+
+            let newName = prompt("Nama baru:");
+            if(!newName) return;
+
+            let arr;
+            if(appData.categories.pengeluaran.includes(oldName)){
+                arr = appData.categories.pengeluaran;
+            } else if(appData.categories.amplop.includes(oldName)){
+                arr = appData.categories.amplop;
+            } else {
+                return alert("Kategori tidak ditemukan.");
+            }
+
+            let idx = arr.indexOf(oldName);
+            arr[idx] = newName;
+
+            // Dioptimalkan: Sinkronisasi nama kategori lama ke baru di SEMUA tahun agar history data tidak rusak
+            Object.keys(appData.years).forEach(yr => {
+                if(appData.years[yr].txs) {
+                    appData.years[yr].txs.forEach(tx => {
+                        if(tx.category === oldName) tx.category = newName;
+                    });
+                }
+                if(appData.years[yr].saldoAwalCat && appData.years[yr].saldoAwalCat[oldName] !== undefined) {
+                    appData.years[yr].saldoAwalCat[newName] = appData.years[yr].saldoAwalCat[oldName];
+                    delete appData.years[yr].saldoAwalCat[oldName];
+                }
+            });
+
+            saveData();
+            renderAll();
+            document.getElementById('new-cat-name').value = "";
+            alert("Kategori berhasil diubah.");
+        }
+
+        function deleteCategory(){
+            let type = document.getElementById('new-cat-type').value;
+            let name = document.getElementById('new-cat-name').value.trim();
+
+            if(!name){
+                return alert("Masukkan nama kategori.");
+            }
+
+            let arr = type === "Pengeluaran" ? appData.categories.pengeluaran : appData.categories.amplop;
+            let idx = arr.indexOf(name);
+
+            if(idx === -1){
+                return alert("Kategori tidak ditemukan.");
+            }
+
+            if(!confirm(`Hapus kategori "${name}"? Seluruh transaksi dan saldo awal terkait kategori ini di SEMUA tahun akan ikut terhapus secara permanen.`)){
+                return;
+            }
+
+            arr.splice(idx, 1);
+
+            // Dioptimalkan: Bersihkan transaksi dan saldo awal kategori di semua lini tahun secara menyeluruh
+            Object.keys(appData.years).forEach(yr => {
+                if(appData.years[yr].txs) {
+                    appData.years[yr].txs = appData.years[yr].txs.filter(t => t.category !== name);
+                }
+                if(appData.years[yr].saldoAwalCat) {
+                    delete appData.years[yr].saldoAwalCat[name];
+                }
+            });
+
+            saveData();
+            renderAll();
+            document.getElementById('new-cat-name').value = "";
+            alert("Kategori berhasil dihapus.");
+        }
+
+        function backupData(){
+            const blob = new Blob([JSON.stringify(appData)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `backup_keuangan_${appData.activeYear}.json`;
+            a.click();
+        }
+
+        function restoreData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let importedData = JSON.parse(e.target.result);
+                    if (importedData.pin && importedData.years) {
+                        appData = importedData; saveData();
+                        alert("Data Keuangan Berhasil Di-restore!"); location.reload();
+                    } else { alert("Format file backup tidak valid!"); }
+                } catch (err) { alert("Gagal membaca file!"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportToExcel() {
+            let wb = XLSX.utils.book_new();
+            let txs = appData.years[appData.activeYear].txs;
+
+            let dbData = [
+                ["METRIK UTAMA KEUANGAN", "NILAI"],
+                ["Total Saldo", document.getElementById('db-total-saldo').innerText],
+                ["Total Pengeluaran", document.getElementById('db-total-pengeluaran').innerText],
+                ["Total Amplop", document.getElementById('db-total-amplop').innerText],
+                ["Total Transaksi", document.getElementById('db-total-transaksi').innerText]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dbData), "Dashboard Summary");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(document.getElementById('table-pengeluaran')), "Kategori Pengeluaran");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(document.getElementById('table-amplop')), "Kategori Amplop");
+            
+            let allTx = txs.map(t=>({ Tanggal: t.date, Jenis: t.type, Kategori: t.category, Nominal: t.amount, Aksi: t.action }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allTx), "Semua Transaksi");
+
+            const laporan = {};
+            txs.forEach(t=>{
+                let bulan = t.date.substring(0,7);
+                if(!laporan[bulan]){ laporan[bulan] = 0; }
+                laporan[bulan] += t.action === "Pengeluaran" ? -t.amount : t.amount;
+            });
+
+            let monthlyArr = Object.keys(laporan).sort().map(bln => ({ "Periode Bulan": bln, "Arus Kas Bersih (Rp)": laporan[bln] }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(monthlyArr), "Laporan Bulanan");
+
+            XLSX.writeFile(wb, `Laporan_Keuangan_Ruher_${appData.activeYear}.xlsx`);
+        }
+    </script>
+</body>
+</html>
