@@ -1,6 +1,6 @@
 {
   "name": "Aplikasi Saya",
-  "short_name": "App",
+  "short_name": "catatan keuangan",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
